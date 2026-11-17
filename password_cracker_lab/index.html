@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PassAudit // Симулятор взлома паролей и анализа энтропии</title>
+  <style>
+    :root {
+      --bg: #070b12;
+      --card: #0f1623;
+      --card-dark: #090e17;
+      --border: #1e293b;
+      --green: #00ff66;
+      --green-dim: rgba(0, 255, 102, 0.15);
+      --cyan: #00f0ff;
+      --red: #ff2a5f;
+      --amber: #ffb703;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Consolas', 'Courier New', monospace;
+      min-height: 100vh;
+      padding: 22px 16px;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 16px;
+      margin-bottom: 22px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      color: var(--green);
+      text-shadow: 0 0 12px rgba(0, 255, 102, 0.3);
+    }
+
+    header p {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .hw-badge {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--cyan);
+    }
+
+    /* Основная сетка */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 950px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"], input[type="password"], select {
+      width: 100%;
+      background: var(--card-dark);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 11px 12px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 15px;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--green);
+    }
+
+    /* Кнопки-пресеты для быстрой демонстрации */
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .preset-btn {
+      background: var(--card-dark);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: 0.2s;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* Шкала энтропии */
+    .entropy-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--card-dark);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+
+    .entropy-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--red);
+      transition: width 0.3s, background 0.3s;
+    }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric-box {
+      background: var(--card-dark);
+      border: 1px solid var(--border);
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .metric-label { font-size: 11px; color: var(--muted); }
+    .metric-val { font-size: 16px; font-weight: bold; color: var(--text); margin-top: 4px; }
+
+    /* Таблица времени взлома на разном железе */
+    .time-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .time-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .time-table td:last-child {
+      text-align: right;
+      font-weight: bold;
+    }
+
+    /* Кнопка запуска атаки */
+    .btn-attack {
+      background: var(--green);
+      color: #050811;
+      border: none;
+      padding: 13px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: 0.2s;
+    }
+
+    .btn-attack:hover { filter: brightness(1.1); }
+    .btn-stop { background: var(--red); color: #fff; }
+
+    /* =========================================================================
+       ПРАВАЯ КОЛОНКА: ТЕРМИНАЛ ПЕРЕБОРА И ХЭШИ
+       ========================================================================= */
+    .hash-box {
+      background: var(--card-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hash-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      word-break: break-all;
+    }
+
+    .hash-tag {
+      color: var(--cyan);
+      font-weight: bold;
+      min-width: 70px;
+    }
+
+    /* Окно живого перебора комбинаций */
+    .cracker-screen {
+      background: #03060a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+
+    .candidate-display {
+      text-align: center;
+      padding: 16px;
+      background: rgba(0, 255, 102, 0.04);
+      border: 1px dashed rgba(0, 255, 102, 0.3);
+      border-radius: 8px;
+    }
+
+    .candidate-word {
+      font-size: 30px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      color: var(--green);
+      min-height: 38px;
+      word-break: break-all;
+    }
+
+    .candidate-hash {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .matrix-log {
+      height: 210px;
+      overflow-y: hidden;
+      background: #020408;
+      border: 1px solid #141e2e;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 12px;
+      color: #4ade80;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 3px;
+    }
+
+    .log-line {
+      opacity: 0.85;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-banner {
+      display: none;
+      padding: 14px;
+      border-radius: 8px;
+      font-weight: bold;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    .result-cracked {
+      background: rgba(255, 42, 95, 0.15);
+      border: 1px solid var(--red);
+      color: var(--red);
+    }
+
+    .result-safe {
+      background: rgba(0, 255, 102, 0.12);
+      border: 1px solid var(--green);
+      color: var(--green);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>🔓 PASS-CRACKER LAB // ВИЗУАЛИЗАТОР ВЗЛОМА И ЭНТРОПИИ</h1>
+      <p>Стенд исследования криптостойкости паролей, скорости перебора и защиты хэшированием</p>
+    </div>
+    <div class="hw-badge" id="cpuBenchBadge">⚡ Замер мощности CPU...</div>
+  </header>
+
+  <div class="main-grid">
+    <!-- =======================================================================
+         ЛЕВАЯ ПАНЕЛЬ: НАСТРОЙКИ ПАРОЛЯ И МАТЕМАТИЧЕСКИЙ АНАЛИЗ
+         ======================================================================= -->
+    <div class="card">
+      <div class="card-title">1. Целевой пароль и метод атаки</div>
+
+      <div>
+        <label for="targetPassword">Введите тестируемый пароль:</label>
+        <div class="input-group">
+          <input type="text" id="targetPassword" value="qwerty123" autocomplete="off">
+        </div>
+        <div style="margin-top: 8px;">
+          <span style="font-size: 11px; color: var(--muted);">Быстрые примеры для стенда:</span>
+          <div class="presets" style="margin-top: 5px;">
+            <button class="preset-btn" onclick="setPreset('qwerty123', 'dict')">qwerty123 (Словарь)</button>
+            <button class="preset-btn" onclick="setPreset('4815', 'brute')">4815 (PIN-код)</button>
+            <button class="preset-btn" onclick="setPreset('cat9', 'brute')">cat9 (Малый перебор)</button>
+            <button class="preset-btn" onclick="setPreset('Pass2026', 'mask')">Pass2026 (Маска)</button>
+            <button class="preset-btn" onclick="setPreset('K@zakhstan#2026!', 'brute')">K@zakhstan#2026! (Стойкий)</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="attackMethod">Метод подбора пароля:</label>
+        <select id="attackMethod">
+          <option value="dict">1. Атака по словарю + правила (Dictionary Attack)</option>
+          <option value="brute">2. Полный перебор символов (Brute-Force)</option>
+          <option value="mask">3. Атака по маске шаблона (Mask Attack)</option>
+        </select>
+      </div>
+
+      <!-- Анализ энтропии и комбинаций -->
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+          <span>Криптографическая стойкость:</span>
+          <span id="strengthLabel" style="font-weight: bold;">СЛАБЫЙ</span>
+        </div>
+        <div class="entropy-bar">
+          <div class="entropy-fill" id="entropyFill"></div>
+        </div>
+
+        <div class="metrics-row" style="margin-top: 10px;">
+          <div class="metric-box">
+            <div class="metric-label">Энтропия пароля</div>
+            <div class="metric-val" id="entropyVal">0 бит</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Всего комбинаций</div>
+            <div class="metric-val" id="combinationsVal">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Оценка времени взлома на разном оборудовании -->
+      <div>
+        <label>Расчётное время полного перебора (MD5):</label>
+        <table class="time-table">
+          <tr>
+            <td>💻 Этот ПК (1 поток Python):</td>
+            <td id="timeLocalCpu" style="color: var(--cyan);">—</td>
+          </tr>
+          <tr>
+            <td>🎮 Игровая GPU (RTX 4090 — 160 GH/s):</td>
+            <td id="timeSingleGpu" style="color: var(--amber);">—</td>
+          </tr>
+          <tr>
+            <td>🏭 Кластер взлома (8× GPU — 1.3 TH/s):</td>
+            <td id="timeCluster" style="color: var(--red);">—</td>
+          </tr>
+          <tr>
+            <td>🛡️ С защитой PBKDF2 (100k итераций):</td>
+            <td id="timePbkdf2" style="color: var(--green);">—</td>
+          </tr>
+        </table>
+      </div>
+
+      <button class="btn-attack" id="startBtn" onclick="toggleAttack()">🚀 ЗАПУСТИТЬ СИМУЛЯЦИЮ ВЗЛОМА</button>
+    </div>
+
+    <!-- =======================================================================
+         ПРАВАЯ ПАНЕЛЬ: ЖИВОЙ ВИЗУАЛИЗАТОР ПЕРЕБОРА И ХЭШИ
+         ======================================================================= -->
+    <div class="card">
+      <div class="card-title">2. Перехваченные хэши и терминал перебора</div>
+
+      <!-- Реальные хэши с бэкенда Python -->
+      <div class="hash-box">
+        <div class="hash-line">
+          <span class="hash-tag">MD5:</span>
+          <span id="hashMd5" style="color: var(--red);">вычисление...</span>
+        </div>
+        <div class="hash-line">
+          <span class="hash-tag">SHA-256:</span>
+          <span id="hashSha256" style="color: var(--amber);">вычисление...</span>
+        </div>
+        <div class="hash-line">
+          <span class="hash-tag">PBKDF2:</span>
+          <span id="hashPbkdf2" style="color: var(--green);">вычисление...</span>
+        </div>
+      </div>
+
+      <!-- Экран визуализации перебора -->
+      <div class="cracker-screen">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--muted);">
+          <span id="statusText">СТАТУС: ОЖИДАНИЕ ЗАПУСКА</span>
+          <span id="attemptsText">ПРОВЕРЕНО: 0</span>
+        </div>
+
+        <div class="candidate-display">
+          <div style="font-size: 11px; color: var(--muted); margin-bottom: 4px;">ТЕКУЩИЙ КАНДИДАТ ПЕРЕБОРА:</div>
+          <div class="candidate-word" id="currentCandidate">********</div>
+          <div class="candidate-hash" id="candidateHash">Хэш кандидата: 00000000000000000000000000000000</div>
+        </div>
+
+        <!-- Бегущий поток проверенных комбинаций -->
+        <div class="matrix-log" id="matrixLog">
+          <div class="log-line" style="color: var(--muted);">[SYSTEM] Готов к запуску атаки на целевой хэш...</div>
+        </div>
+
+        <!-- Итоговый баннер -->
+        <div class="result-banner" id="resultBanner"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Базовый словарь популярных паролей для демонстрации Dictionary Attack
+  const COMMON_DICTIONARY = [
+    "123456", "password", "12345678", "qwerty", "123456789", "12345",
+    "111111", "1234567", "sunshine", "qwerty123", "iloveyou", "princess",
+    "admin", "welcome", "666666", "abc123", "football", "123123", "monkey",
+    "letmein", "shadow", "master", "654321", "superman", "qazwsx",
+    "michael", "jordan", "harley", "ranger", "jennifer", "hunter",
+    "buster", "soccer", "batman", "trustno1", "pass", "secret",
+    "kazakhstan", "astana", "almaty", "petropavl", "student", "college"
+  ];
+
+  let cpuStats = { md5_hps: 1500000, sha256_hps: 1000000, pbkdf2_hps: 15 };
+  let isRunning = false;
+  let attackTimer = null;
+
+  const pwdInput = document.getElementById('targetPassword');
+  const methodSelect = document.getElementById('attackMethod');
+
+  // Загружаем реальные показатели мощности процессора с Python-сервера
+  async function loadBenchmark() {
+    try {
+      const res = await fetch('/api/benchmark');
+      cpuStats = await res.json();
+      document.getElementById('cpuBenchBadge').textContent =
+        `⚡ CPU ПК: ${(cpuStats.md5_hps / 1e6).toFixed(2)} млн MD5/сек | PBKDF2: ${cpuStats.pbkdf2_hps}/сек`;
+      analyzePassword();
+    } catch (e) {
+      document.getElementById('cpuBenchBadge').textContent = '⚡ Локальный режим';
+    }
+  }
+
+  // Запрос реальных хэшей у Python-сервера
+  async function updateHashes(pwd) {
+    try {
+      const res = await fetch('/api/hash?pwd=' + encodeURIComponent(pwd));
+      const data = await res.json();
+      document.getElementById('hashMd5').textContent = data.md5;
+      document.getElementById('hashSha256').textContent = data.sha256;
+      document.getElementById('hashPbkdf2').textContent = data.pbkdf2;
+    } catch (e) {}
+  }
+
+  // Быстрый выбор примера
+  function setPreset(pwd, method) {
+    if (isRunning) stopAttack();
+    pwdInput.value = pwd;
+    methodSelect.value = method;
+    analyzePassword();
+  }
+
+  // Форматирование больших чисел и времени
+  function formatBigNumber(n) {
+    if (n < 1e6) return Math.round(n).toLocaleString('ru-RU');
+    if (n < 1e9) return (n / 1e6).toFixed(1) + ' млн';
+    if (n < 1e12) return (n / 1e9).toFixed(1) + ' млрд';
+    if (n < 1e15) return (n / 1e12).toFixed(1) + ' трлн';
+    return n.toExponential(2);
+  }
+
+  function formatDuration(seconds) {
+    if (seconds < 0.001) return 'Мгновенно (< 1 мс)';
+    if (seconds < 1) return (seconds * 1000).toFixed(0) + ' мс';
+    if (seconds < 60) return seconds.toFixed(1) + ' сек';
+    if (seconds < 3600) return (seconds / 60).toFixed(1) + ' мин';
+    if (seconds < 86400) return (seconds / 3600).toFixed(1) + ' часов';
+    if (seconds < 31536000) return (seconds / 86400).toFixed(1) + ' дней';
+    const years = seconds / 31536000;
+    if (years < 1e6) return Math.round(years).toLocaleString('ru-RU') + ' лет';
+    if (years < 1e9) return (years / 1e6).toFixed(1) + ' млн лет';
+    return '> 1 млрд лет (вечность)';
+  }
+
+  // Математический расчёт энтропии и пространства перебора
+  function analyzePassword() {
+    const pwd = pwdInput.value;
+    updateHashes(pwd);
+
+    if (!pwd) {
+      document.getElementById('entropyVal').textContent = '0 бит';
+      document.getElementById('combinationsVal').textContent = '0';
+      return;
+    }
+
+    // Определяем мощность алфавита (N)
+    let charsetSize = 0;
+    if (/[a-z]/.test(pwd)) charsetSize += 26;
+    if (/[A-Z]/.test(pwd)) charsetSize += 26;
+    if (/[0-9]/.test(pwd)) charsetSize += 10;
+    if (/[а-яёА-ЯЁ]/.test(pwd)) charsetSize += 33;
+    if (/[^a-zA-Z0-9а-яёА-ЯЁ]/.test(pwd)) charsetSize += 32;
+
+    const combinations = Math.pow(charsetSize, pwd.length);
+    const entropy = Math.round(pwd.length * Math.log2(charsetSize || 1));
+
+    document.getElementById('entropyVal').textContent = `${entropy} бит (N=${charsetSize})`;
+    document.getElementById('combinationsVal').textContent = formatBigNumber(combinations);
+
+    // Обновляем цвет и шкалу стойкости
+    const fill = document.getElementById('entropyFill');
+    const label = document.getElementById('strengthLabel');
+    const pct = Math.min(100, (entropy / 90) * 100);
+    fill.style.width = pct + '%';
+
+    if (entropy < 35 || COMMON_DICTIONARY.includes(pwd.toLowerCase())) {
+      fill.style.background = 'var(--red)';
+      label.style.color = 'var(--red)';
+      label.textContent = 'КРИТИЧЕСКИ СЛАБЫЙ';
+    } else if (entropy < 55) {
+      fill.style.background = 'var(--amber)';
+      label.style.color = 'var(--amber)';
+      label.textContent = 'УЯЗВИМЫЙ';
+    } else if (entropy < 75) {
+      fill.style.background = 'var(--cyan)';
+      label.style.color = 'var(--cyan)';
+      label.textContent = 'СРЕДНИЙ';
+    } else {
+      fill.style.background = 'var(--green)';
+      label.style.color = 'var(--green)';
+      label.textContent = 'КРИПТОСТОЙКИЙ';
+    }
+
+    // Расчёт времени взлома для 4 конфигураций оборудования
+    document.getElementById('timeLocalCpu').textContent = formatDuration(combinations / cpuStats.md5_hps);
+    document.getElementById('timeSingleGpu').textContent = formatDuration(combinations / 160e9);
+    document.getElementById('timeCluster').textContent = formatDuration(combinations / 1.3e12);
+    document.getElementById('timePbkdf2').textContent = formatDuration(combinations / (cpuStats.pbkdf2_hps * 500));
+  }
+
+  pwdInput.addEventListener('input', () => {
+    if (isRunning) stopAttack();
+    analyzePassword();
+  });
+
+  // ===========================================================================
+  // ВИЗУАЛЬНЫЙ СИМУЛЯТОР ПЕРЕБОРА КОМБИНАЦИЙ
+  // ===========================================================================
+  function fakeHex(str) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0') + '...';
+  }
+
+  function appendLog(text, color = '#4ade80') {
+    const log = document.getElementById('matrixLog');
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.style.color = color;
+    div.textContent = text;
+    log.appendChild(div);
+    if (log.children.length > 14) log.removeChild(log.firstChild);
+  }
+
+  function toggleAttack() {
+    if (isRunning) {
+      stopAttack();
+    } else {
+      startAttack();
+    }
+  }
+
+  function stopAttack() {
+    isRunning = false;
+    clearInterval(attackTimer);
+    const btn = document.getElementById('startBtn');
+    btn.textContent = '🚀 ЗАПУСТИТЬ СИМУЛЯЦИЮ ВЗЛОМА';
+    btn.classList.remove('btn-stop');
+    document.getElementById('statusText').textContent = 'СТАТУС: ОСТАНОВЛЕНО';
+  }
+
+  function startAttack() {
+    const target = pwdInput.value;
+    if (!target) return;
+
+    const method = methodSelect.value;
+    isRunning = true;
+
+    const btn = document.getElementById('startBtn');
+    btn.textContent = '⛔ ОСТАНОВИТЬ АТАКУ';
+    btn.classList.add('btn-stop');
+
+    const banner = document.getElementById('resultBanner');
+    banner.style.display = 'none';
+    document.getElementById('matrixLog').innerHTML = '';
+    document.getElementById('statusText').textContent = 'СТАТУС: ИДЁТ ПОДБОР...';
+
+    let attempts = 0;
+    const startTime = performance.now();
+
+    // 1. РЕЖИМ АТАКИ ПО СЛОВАРЮ (DICTIONARY + RULES)
+    if (method === 'dict') {
+      const candidates = [];
+      const suffixes = ["", "1", "123", "2024", "2025", "2026", "!", "99", "01"];
+      for (const word of COMMON_DICTIONARY) {
+        for (const suf of suffixes) {
+          candidates.push(word + suf);
+          candidates.push(word[0].toUpperCase() + word.slice(1) + suf);
+        }
+      }
+
+      let idx = 0;
+      attackTimer = setInterval(() => {
+        for (let step = 0; step < 6; step++) {
+          if (idx >= candidates.length) {
+            finishAttack(false, attempts, startTime, 'Пароль не найден в словаре (требуется полный перебор).');
+            return;
+          }
+          const cand = candidates[idx++];
+          attempts++;
+          updateVisualCandidate(cand, attempts);
+
+          if (cand === target) {
+            finishAttack(true, attempts, startTime, `ПАРОЛЬ ВЗЛОМАН ПО СЛОВАРЮ: "${cand}"`);
+            return;
+          }
+        }
+      }, 35);
+    }
+
+    // 2. РЕЖИМ АТАКИ ПО МАСКЕ (MASK ATTACK)
+    else if (method === 'mask') {
+      // Строим маску на основе структуры пароля (Заглавная, строчные, цифры)
+      const maskPattern = Array.from(target).map(ch => {
+        if (/[A-Z]/.test(ch)) return '?u';
+        if (/[a-z]/.test(ch)) return '?l';
+        if (/[0-9]/.test(ch)) return '?d';
+        return '?s';
+      }).join('');
+
+      appendLog(`[MASK] Применена маска структуры: ${maskPattern}`, '#00f0ff');
+
+      let stepCount = 0;
+      const maxVisualSteps = 85;
+
+      attackTimer = setInterval(() => {
+        stepCount++;
+        attempts += Math.floor(Math.random() * 14500) + 3200;
+
+        // Генерируем случайного кандидата строго по маске пароля
+        const cand = Array.from(target).map((ch, i) => {
+          if (stepCount > maxVisualSteps - i * 4) return ch; // Постепенно «фиксируем» угаданные позиции
+          if (/[A-Z]/.test(ch)) return String.fromCharCode(65 + Math.floor(Math.random() * 26));
+          if (/[a-z]/.test(ch)) return String.fromCharCode(97 + Math.floor(Math.random() * 26));
+          if (/[0-9]/.test(ch)) return String(Math.floor(Math.random() * 10));
+          return '!@#$%&*'[Math.floor(Math.random() * 7)];
+        }).join('');
+
+        updateVisualCandidate(cand, attempts);
+
+        if (cand === target) {
+          finishAttack(true, attempts, startTime, `ПАРОЛЬ ВЗЛОМАН ПО МАСКЕ (${maskPattern}): "${cand}"`);
+        }
+      }, 40);
+    }
+
+    // 3. РЕЖИМ ПОЛНОГО ПЕРЕБОРА (BRUTE-FORCE)
+    else if (method === 'brute') {
+      let alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      if (/[A-Z]/.test(target)) alphabet += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      if (/[^a-zA-Z0-9]/.test(target)) alphabet += '!@#$%^&*_-';
+
+      // Для коротких паролей (<= 4 символов) выполняем честный последовательный перебор!
+      if (target.length <= 4 && /^[a-zA-Z0-9!@#$%^&*_-]+$/.test(target)) {
+        const len = target.length;
+        const indices = new Array(len).fill(0);
+
+        attackTimer = setInterval(() => {
+          // Ускоряем визуализацию: проверяем по 850 комбинаций за кадр
+          for (let batch = 0; batch < 850; batch++) {
+            const cand = indices.map(i => alphabet[i]).join('');
+            attempts++;
+
+            if (cand === target) {
+              updateVisualCandidate(cand, attempts);
+              finishAttack(true, attempts, startTime, `ПАРОЛЬ ПОДОБРАН ПРЯМЫМ ПЕРЕБОРОМ: "${cand}"`);
+              return;
+            }
+
+            // Инкремент счётчика комбинаций
+            let pos = len - 1;
+            while (pos >= 0) {
+              indices[pos]++;
+              if (indices[pos] < alphabet.length) break;
+              indices[pos] = 0;
+              pos--;
+            }
+            if (pos < 0) {
+              finishAttack(false, attempts, startTime, 'Перебор завершён.');
+              return;
+            }
+          }
+          const lastCand = indices.map(i => alphabet[i]).join('');
+          updateVisualCandidate(lastCand, attempts);
+        }, 20);
+      } else {
+        // Для длинных паролей (> 4 символов) наглядно демонстрируем экспоненциальный рост комбинаций
+        let ticks = 0;
+        attackTimer = setInterval(() => {
+          ticks++;
+          attempts += cpuStats.md5_hps / 20;
+          const randomCand = Array.from({ length: target.length }, () =>
+            alphabet[Math.floor(Math.random() * alphabet.length)]
+          ).join('');
+
+          updateVisualCandidate(randomCand, Math.floor(attempts));
+
+          if (ticks >= 90) {
+            finishAttack(
+              false,
+              Math.floor(attempts),
+              startTime,
+              `ПЕРЕБОР НЕЦЕЛЕСООБРАЗЕН: для длины ${target.length} симв. потребуется слишком много времени.`
+            );
+          }
+        }, 45);
+      }
+    }
+  }
+
+  function updateVisualCandidate(cand, attempts) {
+    const h = fakeHex(cand);
+    document.getElementById('currentCandidate').textContent = cand;
+    document.getElementById('candidateHash').textContent = `Хэш кандидата: ${h}`;
+    document.getElementById('attemptsText').textContent = `ПРОВЕРЕНО: ${attempts.toLocaleString('ru-RU')}`;
+    appendLog(`[TRY #${attempts}] "${cand}" -> ${h}`);
+  }
+
+  function finishAttack(cracked, attempts, startTime, message) {
+    stopAttack();
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+    const banner = document.getElementById('resultBanner');
+    banner.style.display = 'block';
+
+    if (cracked) {
+      document.getElementById('statusText').textContent = `СТАТУС: ВЗЛОМАНО ЗА ${elapsed} СЕК`;
+      banner.className = 'result-banner result-cracked';
+      banner.textContent = `⚠️ ${message} (Попыток: ${attempts.toLocaleString('ru-RU')}, время: ${elapsed} сек)`;
+      appendLog(`[SUCCESS] Совпадение хэша найдено за ${elapsed} сек!`, '#ff2a5f');
+    } else {
+      document.getElementById('statusText').textContent = 'СТАТУС: ЗАЩИТА УСТОЯЛА';
+      banner.className = 'result-banner result-safe';
+      banner.textContent = `🛡️ ${message}`;
+      appendLog(`[STOP] ${message}`, '#00f0ff');
+    }
+  }
+
+  // Инициализация стенда при загрузке страницы
+  loadBenchmark();
+  analyzePassword();
+</script>
+</body>
+</html>
