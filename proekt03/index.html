@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<!-- Указываем браузеру, что документ написан по стандарту HTML5 -->
+<html lang="ru">
+<head>
+  <!-- Задаем кодировку UTF-8 для корректного отображения кириллицы -->
+  <meta charset="UTF-8">
+
+  <!-- Настраиваем адаптивность окна для корректного отображения на мобильных и ПК -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Заголовок вкладки в браузере -->
+  <title>Локальный Музыкальный Плеер</title>
+
+  <style>
+    /* Глобальные цветовые переменные темы оформления */
+    :root {
+      /* Основной темный фон страницы */
+      --bg: #0d1117;
+      /* Темно-серый фон плашки плеера */
+      --card: #161b22;
+      /* Неоновый акцентный цвет для кнопок и полос эквалайзера */
+      --accent: #58a6ff;
+      /* Полупрозрачный цвет для эффекта свечения */
+      --accent-glow: rgba(88, 166, 255, 0.3);
+      /* Основной белый цвет текста */
+      --text: #f0f6fc;
+      /* Приглушенный серый цвет для второстепенных подписей */
+      --muted: #8b949e;
+      /* Цвет контурных рамок */
+      --border: #30363d;
+    }
+
+    /* Сброс стандартных браузерных отступов у всех тегов */
+    * {
+      /* Размеры блоков считаются вместе с рамками и внутренними отступами */
+      box-sizing: border-box;
+      /* Обнуляем внешние отступы */
+      margin: 0;
+      /* Обнуляем внутренние отступы */
+      padding: 0;
+    }
+
+    /* Стилизация главного окна страницы */
+    body {
+      /* Заливаем фон переменной темной темы */
+      background: var(--bg);
+      /* Задаем белый цвет текста по умолчанию */
+      color: var(--text);
+      /* Подключаем системные шрифты без засечек */
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      /* Растягиваем высоту body минимум на 100% высоты видимого экрана */
+      min-height: 100vh;
+      /* Включаем режим Flexbox для центрирования карточки */
+      display: flex;
+      /* Центрируем карточку по горизонтали */
+      justify-content: center;
+      /* Центрируем карточку по вертикали */
+      align-items: center;
+      /* Задаем отступ по краям экрана в 20 пикселей */
+      padding: 20px;
+    }
+
+    /* Карточка плеера по центру экрана */
+    .player-card {
+      /* Фоновый цвет карточки */
+      background: var(--card);
+      /* Контурная серая рамка толщиной 1 пиксель */
+      border: 1px solid var(--border);
+      /* Закругление углов карточки */
+      border-radius: 16px;
+      /* Внутренние отступы вокруг контента */
+      padding: 30px;
+      /* Ширина блока занимает все доступное место */
+      width: 100%;
+      /* Ограничиваем максимальную ширину блока до 450 пикселей */
+      max-width: 450px;
+      /* Мягкая внешняя тень карточки */
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      /* Выстраиваем элементы внутри карточки колонкой */
+      display: flex;
+      flex-direction: column;
+      /* Расстояние между внутренними блоками в 20 пикселей */
+      gap: 20px;
+      /* Текст центрируется по середине */
+      text-align: center;
+    }
+
+    /* Главный заголовок плеера */
+    h1 {
+      /* Размер шрифта 20 пикселей */
+      font-size: 20px;
+      /* Полужирное начертание */
+      font-weight: 600;
+      /* Окрашиваем текст в неоновый акцентный цвет */
+      color: var(--accent);
+      /* Межбуквенный интервал */
+      letter-spacing: 0.5px;
+    }
+
+    /* Обертка для скрытия нативного поля выбора файла */
+    .file-input-wrapper {
+      /* Относительное позиционирование для наложения слоев */
+      position: relative;
+      /* Блочно-строчный элемент */
+      display: inline-block;
+      /* Растягиваем по всей ширине карточки */
+      width: 100%;
+    }
+
+    /* Настоящий скрытый тег выбора файла с диска */
+    .file-input-wrapper input[type="file"] {
+      /* Абсолютное позиционирование поверх декоративной кнопки */
+      position: absolute;
+      /* Прижимаем к левому краю */
+      left: 0;
+      /* Прижимаем к верхнему краю */
+      top: 0;
+      /* Делаем полностью прозрачным */
+      opacity: 0;
+      /* Растягиваем на всю ширину и высоту кнопки */
+      width: 100%;
+      height: 100%;
+      /* Меняем курсор мыши на стрелку выбора (руку) */
+      cursor: pointer;
+    }
+
+    /* Кастомная декоративная кнопка загрузки */
+    .upload-btn {
+      /* Выравниваем иконку и текст внутри по центру */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Промежуток между иконкой и текстом */
+      gap: 10px;
+      /* Темно-серый фон кнопки */
+      background: #21262d;
+      /* Пунктирная рамка толщиной 2 пикселя */
+      border: 2px dashed var(--border);
+      /* Закругление углов кнопки */
+      border-radius: 12px;
+      /* Внутренний отступ */
+      padding: 24px;
+      /* Цвет текста */
+      color: var(--text);
+      /* Размер шрифта кнопки */
+      font-size: 15px;
+      /* Средняя толщина шрифта */
+      font-weight: 500;
+      /* Курсор-указатель */
+      cursor: pointer;
+      /* Плавный переход стилей при наведении за 0.2 секунды */
+      transition: all 0.2s ease;
+    }
+
+    /* Поведение кнопки загрузки при наведении курсора мыши */
+    .upload-btn:hover {
+      /* Подсвечиваем рамку акцентным цветом */
+      border-color: var(--accent);
+      /* Осветляем фон при наведении */
+      background: #30363d;
+    }
+
+    /* Блок плеера с элементами управления */
+    #playerSection {
+      /* Изначально скрыт, пока файл не будет выбран пользователем */
+      display: none;
+      /* Располагаем элементы вертикально */
+      flex-direction: column;
+      /* Промежуток между элементами управления */
+      gap: 16px;
+      /* Плавная анимация всплытия */
+      animation: fadeIn 0.4s ease;
+    }
+
+    /* Описание анимации плавного появления */
+    @keyframes fadeIn {
+      /* Начальное состояние: элемент прозрачен и смещен вниз на 10px */
+      from { opacity: 0; transform: translateY(10px); }
+      /* Конечное состояние: полная видимость и возврат на исходную позицию */
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Блок с информацией о загруженном треке */
+    .track-info {
+      /* Темный фон подложки */
+      background: #0d1117;
+      /* Внутренний отступ текста */
+      padding: 12px;
+      /* Закругление краев плашки */
+      border-radius: 8px;
+      /* Тонкая серая рамка */
+      border: 1px solid var(--border);
+    }
+
+    /* Название проигрываемой песни */
+    .track-title {
+      /* Размер шрифта 15 пикселей */
+      font-size: 15px;
+      /* Полужирное начертание */
+      font-weight: 600;
+      /* Запрещаем перенос длинных строк на новую строку */
+      white-space: nowrap;
+      /* Скрываем текст, выходящий за границы блока */
+      overflow: hidden;
+      /* Добавляем многоточие в конце слишком длинного названия */
+      text-overflow: ellipsis;
+    }
+
+    /* Размер и тип файла */
+    .track-format {
+      /* Маленький размер шрифта */
+      font-size: 12px;
+      /* Приглушенный серый цвет */
+      color: var(--muted);
+      /* Небольшой отступ сверху от названия */
+      margin-top: 4px;
+      /* Преобразуем буквы формата в верхний регистр */
+      text-transform: uppercase;
+    }
+
+    /* Холст HTML5 Canvas для отрисовки столбиков звука */
+    canvas {
+      /* Ширина на 100% родительского блока */
+      width: 100%;
+      /* Фиксированная высота холста 80 пикселей */
+      height: 80px;
+      /* Глубокий черный фон холста */
+      background: #050811;
+      /* Закругление углов холста */
+      border-radius: 8px;
+      /* Рамка вокруг области визуализации */
+      border: 1px solid var(--border);
+    }
+
+    /* Контейнер строки перемотки трека */
+    .timeline-container {
+      /* Вертикальное расположение ползунка и таймеров */
+      display: flex;
+      flex-direction: column;
+      /* Отступ между ползунком и цифрами времени */
+      gap: 6px;
+    }
+
+    /* Ползунок перемотки (Range Slider) */
+    .seek-slider {
+      /* Растягиваем на всю ширину блока */
+      width: 100%;
+      /* Задаем акцентный синий цвет бегунку ползунка */
+      accent-color: var(--accent);
+      /* Курсор в виде пальца при наведении */
+      cursor: pointer;
+      /* Высота полосы перемотки */
+      height: 6px;
+      /* Закругление полосы */
+      border-radius: 3px;
+      /* Серый фон непроигранной части трека */
+      background: var(--border);
+    }
+
+    /* Блок отображения минут и секунд */
+    .time-display {
+      /* Разносим текущее и оставшееся время по краям */
+      display: flex;
+      justify-content: space-between;
+      /* Мелкий шрифт счетчика времени */
+      font-size: 12px;
+      /* Приглушенный цвет цифр */
+      color: var(--muted);
+      /* Моноширинный шрифт, чтобы цифры не прыгали при смене значений */
+      font-family: monospace;
+    }
+
+    /* Главная кнопка запуска музыки (Play / Pause) */
+    .play-btn {
+      /* Заливка кнопки акцентным синим цветом */
+      background: var(--accent);
+      /* Темный цвет текста на кнопке */
+      color: #0d1117;
+      /* Убираем стандартную браузерную рамку */
+      border: none;
+      /* Овальная форма кнопки (скругление 50 пикселей) */
+      border-radius: 50px;
+      /* Внутренние отступы кнопки: 14px сверху/снизу, 28px по бокам */
+      padding: 14px 28px;
+      /* Крупный размер текста на кнопке */
+      font-size: 16px;
+      /* Жирный текст */
+      font-weight: 700;
+      /* Курсор-указатель */
+      cursor: pointer;
+      /* Флекс-контейнер для центрирования значка треугольника и текста */
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      /* Отступ между значком и текстом */
+      gap: 8px;
+      /* Плавный переход при нажатии */
+      transition: all 0.2s ease;
+      /* Неоновая подсветка под кнопкой */
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    /* Эффект увеличения кнопки при наведении мыши */
+    .play-btn:hover {
+      /* Увеличиваем кнопку на 3% */
+      transform: scale(1.03);
+      /* Делаем цвет чуть ярче */
+      filter: brightness(1.1);
+    }
+
+    /* Эффект отдачи кнопки при физическом клике */
+    .play-btn:active {
+      /* Уменьшаем кнопку на 2% */
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Главный блок карточки плеера -->
+  <div class="player-card">
+    <!-- Заголовок интерфейса -->
+    <h1>🎵 ЛОКАЛЬНЫЙ АУДИОПЛЕЕР</h1>
+
+    <!-- Контейнер для загрузки файла -->
+    <div class="file-input-wrapper">
+      <!-- Поле выбора аудиофайла с фильтрацией расширений -->
+      <input type="file" id="audioFileInput" accept=".mp3, .wav, .ogg, .flac, .m4a, audio/*">
+      <!-- Видимая декоративная кнопка для клика -->
+      <div class="upload-btn" id="uploadLabel">
+        <span>📁 Загрузить песню с компьютера</span>
+      </div>
+    </div>
+
+    <!-- Скрытая секция управления плеером (откроется после выбора аудио) -->
+    <div id="playerSection">
+      <!-- Метаданные о выбранном треке -->
+      <div class="track-info">
+        <div class="track-title" id="trackTitle">Название песни</div>
+        <div class="track-format" id="trackFormat">Аудиофайл</div>
+      </div>
+
+      <!-- Холст для эквалайзера -->
+      <canvas id="visualizer"></canvas>
+
+      <!-- Шкала времени воспроизведения -->
+      <div class="timeline-container">
+        <!-- Интерактивный ползунок перемотки -->
+        <input type="range" id="seekSlider" class="seek-slider" min="0" value="0" step="0.1">
+        <!-- Блок счетчиков времени -->
+        <div class="time-display">
+          <span id="currentTime">00:00</span>
+          <span id="totalDuration">00:00</span>
+        </div>
+      </div>
+
+      <!-- Блок с кнопкой воспроизведения -->
+      <div>
+        <button class="play-btn" id="playBtn">▶ Воспроизвести</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Невидимый аудио-движок HTML5 для декодирования аудиопотока -->
+  <audio id="audioElement"></audio>
+
+  <script>
+    // Находим и сохраняем элемент скрытого выбора файла
+    const fileInput = document.getElementById('audioFileInput');
+
+    // Находим кнопку-обертку загрузки
+    const uploadLabel = document.getElementById('uploadLabel');
+
+    // Находим выпадающую секцию с элементами управления плеером
+    const playerSection = document.getElementById('playerSection');
+
+    // Находим текстовый блок заголовка трека
+    const trackTitle = document.getElementById('trackTitle');
+
+    // Находим блок описания формата и размера файла
+    const trackFormat = document.getElementById('trackFormat');
+
+    // Находим кнопку воспроизведения / паузы
+    const playBtn = document.getElementById('playBtn');
+
+    // Находим тег аудио, отвечающий за воспроизведение звука
+    const audio = document.getElementById('audioElement');
+
+    // Находим ползунок перемотки
+    const seekSlider = document.getElementById('seekSlider');
+
+    // Находим текстовый элемент текущего времени
+    const currentTimeEl = document.getElementById('currentTime');
+
+    // Находим текстовый элемент общего времени трека
+    const totalDurationEl = document.getElementById('totalDuration');
+
+    // Находим холст для вывода графики эквалайзера
+    const canvas = document.getElementById('visualizer');
+
+    // Получаем двухмерный (2D) контекст для рисования на canvas
+    const ctx = canvas.getContext('2d');
+
+    // Переменная для создания звукового контекста Web Audio API
+    let audioCtx = null;
+
+    // Переменная для модуля анализатора звуковых частот
+    let analyser = null;
+
+    // Переменная для привязки звука из тега audio к звуковому процессору
+    let sourceNode = null;
+
+    // Флаг, подтверждающий успешное создание аудио-узлов
+    let isVisualizerReady = false;
+
+    // Функция перевода количества секунд в читаемый формат ММ:СС
+    function formatTime(seconds) {
+      // Если время не определено (NaN), возвращаем нули
+      if (isNaN(seconds)) return "00:00";
+      // Вычисляем целое число минут и дополняем нулем спереди при необходимости
+      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+      // Вычисляем остаток секунд и дополняем нулем спереди при необходимости
+      const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+      // Возвращаем итоговую строку формата ММ:СС
+      return `${m}:${s}`;
+    }
+
+    // Слушатель события выбора файла пользователем на компьютере
+    fileInput.addEventListener('change', function(e) {
+      // Извлекаем первый выбранный файл из массива
+      const file = e.target.files[0];
+
+      // Если пользователь открыл окно и нажал «Отмена», ничего не делаем
+      if (!file) return;
+
+      // Создаем локальную прямую Blob-ссылку на файл в оперативной памяти компьютера
+      const fileUrl = URL.createObjectURL(file);
+
+      // Передаем созданную ссылку в источник нативного аудиоплеера
+      audio.src = fileUrl;
+
+      // Записываем оригинальное имя файла в блок названия песни
+      trackTitle.textContent = file.name;
+
+      // Рассчитываем размер файла в мегабайтах и отображаем его тип
+      trackFormat.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB • ${file.type || 'audio'}`;
+
+      // Меняем надпись на кнопке выбора файла
+      uploadLabel.innerHTML = `<span>🔄 Выбрать другой файл</span>`;
+
+      // Делаем скрытый блок управления плеером видимым
+      playerSection.style.display = 'flex';
+
+      // Возвращаем текст кнопки в исходное состояние воспроизведения
+      playBtn.textContent = '▶ Воспроизвести';
+    });
+
+    // Функция создания и связывания аудиопроцессора для эквалайзера
+    function setupVisualizer() {
+      // Если аудиоконтекст уже был инициализирован ранее, выходим из функции
+      if (isVisualizerReady) return;
+
+      // Создаем кроссбраузерный звуковой процессор AudioContext
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Создаем узел звукового анализатора частот
+      analyser = audioCtx.createAnalyser();
+
+      // Устанавливаем размер выборки для быстрого преобразования Фурье (32 частотные полосы)
+      analyser.fftSize = 64;
+
+      // Захватываем звуковой поток напрямую из нашего тега audio
+      sourceNode = audioCtx.createMediaElementSource(audio);
+
+      // Соединяем источник звука со входом анализатора спектра
+      sourceNode.connect(analyser);
+
+      // Соединяем выход анализатора с динамиками или наушниками компьютера
+      analyser.connect(audioCtx.destination);
+
+      // Помечаем флаг готовности визуализатора
+      isVisualizerReady = true;
+
+      // Запускаем непрерывную отрисовку полосок частот
+      renderBars();
+    }
+
+    // Функция покадровой отрисовки эквалайзера на Canvas (60 кадров в секунду)
+    function renderBars() {
+      // Запрашиваем у браузера вызов следующего кадра анимации
+      requestAnimationFrame(renderBars);
+
+      // Получаем количество доступных частотных диапазонов
+      const bufferLength = analyser.frequencyBinCount;
+
+      // Создаем типизированный массив байтов для записи уровней громкости
+      const dataArray = new Uint8Array(bufferLength);
+
+      // Заполняем массив актуальными данными громкости частот в текущий момент
+      analyser.getByteFrequencyData(dataArray);
+
+      // Подгоняем реальное разрешение холста под его видимый размер на экране
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      // Стираем старый кадр перед рисованием нового
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Рассчитываем ширину каждого отдельного столбика частоты
+      const barWidth = (canvas.width / bufferLength) * 1.5;
+
+      // Переменная горизонтальной координаты X для рисования полосы
+      let x = 0;
+
+      // Проходим циклом по каждой частотной полосе
+      for (let i = 0; i < bufferLength; i++) {
+        // Вычисляем высоту полосы пропорционально громкости (от 0 до canvas.height)
+        const barHeight = (dataArray[i] / 255) * canvas.height;
+
+        // Задаем неоновый синий цвет заливки полосы
+        ctx.fillStyle = '#58a6ff';
+
+        // Рисуем закрашенный прямоугольник столбика частоты
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+
+        // Сдвигаем координату X вправо для следующего столбика
+        x += barWidth;
+      }
+    }
+
+    // Слушатель нажатия на кнопку Воспроизвести / Пауза
+    playBtn.addEventListener('click', function() {
+      // Вызываем инициализацию эквалайзера при первом клике пользователя
+      setupVisualizer();
+
+      // Проверяем, не заблокирован ли звук политикой браузера, и возобновляем его
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      // Если музыка на паузе
+      if (audio.paused) {
+        // Запускаем воспроизведение трека
+        audio.play();
+        // Меняем значок и текст кнопки на Паузу
+        playBtn.textContent = '⏸ Пауза';
+      } else {
+        // Иначе ставим трек на паузу
+        audio.pause();
+        // Возвращаем значок и текст кнопки на Воспроизведение
+        playBtn.textContent = '▶ Воспроизвести';
+      }
+    });
+
+    // Событие: браузер прочитал метаданные файла и узнал его длительность
+    audio.addEventListener('loadedmetadata', function() {
+      // Устанавливаем максимум ползунка равным длине песни в секундах
+      seekSlider.max = audio.duration;
+      // Отображаем общее время трека в формате ММ:СС
+      totalDurationEl.textContent = formatTime(audio.duration);
+    });
+
+    // Событие: непрерывно срабатывает во время проигрывания трека
+    audio.addEventListener('timeupdate', function() {
+      // Передвигаем бегунок ползунка в текущую секунду песни
+      seekSlider.value = audio.currentTime;
+      // Обновляем текст счетчика пройденного времени
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+    });
+
+    // Событие: трек доиграл до самого конца
+    audio.addEventListener('ended', function() {
+      // Возвращаем кнопку в исходное состояние воспроизведения
+      playBtn.textContent = '▶ Воспроизвести';
+    });
+
+    // Событие: пользователь перемещает ползунок перемотки вручную
+    seekSlider.addEventListener('input', function() {
+      // Перематываем песню на выбранную пользователем секунду
+      audio.currentTime = seekSlider.value;
+    });
+  </script>
+</body>
+</html>

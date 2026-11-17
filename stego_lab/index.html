@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StegoLab // Лаборатория стеганографии и стегоанализа</title>
+  <style>
+    :root {
+      --bg: #080c14;
+      --card: #111827;
+      --card-dark: #0b101b;
+      --border: #1e293b;
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.25);
+      --crimson: #ff2a5f;
+      --green: #00f59b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 1150px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 24px;
+    }
+
+    .title-block h1 {
+      font-size: 22px;
+      color: var(--cyan);
+      letter-spacing: 1px;
+    }
+
+    .title-block p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Переключатель режимов */
+    .tabs {
+      display: flex;
+      gap: 10px;
+      background: var(--card-dark);
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      padding: 10px 18px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .tab-btn.active {
+      background: var(--cyan);
+      color: #050811;
+      box-shadow: 0 0 15px var(--cyan-glow);
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Карточки и сетка */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Зона загрузки файла */
+    .dropzone {
+      position: relative;
+      border: 2px dashed var(--border);
+      background: var(--card-dark);
+      border-radius: 10px;
+      padding: 22px 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .dropzone:hover {
+      border-color: var(--cyan);
+      background: #0f172a;
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .dropzone-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .dropzone-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    textarea, input[type="text"], input[type="password"] {
+      width: 100%;
+      background: var(--card-dark);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 11px 12px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    textarea { height: 110px; resize: vertical; line-height: 1.4; }
+
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: var(--cyan);
+    }
+
+    /* Шкала заполнения пикселей */
+    .capacity-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: var(--card-dark);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .capacity-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--green);
+      transition: width 0.2s, background 0.2s;
+    }
+
+    .capacity-text {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Кнопки */
+    .btn {
+      background: var(--cyan);
+      color: #050811;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+      font-family: inherit;
+      text-align: center;
+    }
+
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-green { background: var(--green); color: #050811; }
+    .btn-outline {
+      background: var(--card-dark);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* Область визуализации изображений */
+    .viewer-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: var(--card-dark);
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      background: var(--card);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+    }
+
+    .filter-btn.active {
+      border-color: var(--crimson);
+      color: var(--crimson);
+      background: rgba(255, 42, 95, 0.12);
+    }
+
+    .filter-btn.active-normal {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .canvas-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 650px) {
+      .canvas-grid { grid-template-columns: 1fr; }
+    }
+
+    .canvas-box {
+      background: var(--card-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-box span {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    canvas {
+      max-width: 100%;
+      max-height: 360px;
+      border-radius: 4px;
+      background-image: linear-gradient(45deg, #161e2e 25%, transparent 25%),
+                        linear-gradient(-45deg, #161e2e 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #161e2e 75%),
+                        linear-gradient(-45deg, transparent 75%, #161e2e 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+
+    .result-box {
+      background: var(--card-dark);
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      padding: 16px;
+      display: none;
+    }
+
+    .result-box pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--green);
+      font-size: 15px;
+      margin-top: 8px;
+      font-family: inherit;
+    }
+
+    .status-badge {
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--cyan);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="title-block">
+      <h1>🔬 STEGOLAB // ЦИФРОВАЯ СТЕГАНОГРАФИЯ (LSB)</h1>
+      <p>Внедрение скрытых данных в битовые плоскости изображений и криминалистический рентген-анализ</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tabEncodeBtn" onclick="switchMode('encode')">🔒 Скрыть текст в фото</button>
+      <button class="tab-btn" id="tabDecodeBtn" onclick="switchMode('decode')">🔓 Извлечь из фото</button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       РЕЖИМ 1: ВНЕДРЕНИЕ ДАННЫХ (ENCODE)
+       ========================================================================= -->
+  <section id="encodePanel" class="panel active">
+    <div class="grid-2">
+      <!-- Левая колонка управления -->
+      <div class="card">
+        <h3>1. Параметры контейнера</h3>
+
+        <div class="dropzone">
+          <input type="file" id="encodeImageInput" accept="image/*">
+          <div class="dropzone-title" id="encodeFileName">📁 Выберите изображение-контейнер</div>
+          <div class="dropzone-sub">Поддерживаются PNG, JPG, WEBP (экспорт всегда в PNG без потерь)</div>
+        </div>
+
+        <div>
+          <label for="secretMessage">Секретное сообщение (RU / EN):</label>
+          <textarea id="secretMessage" placeholder="Введите текст, который нужно незаметно вшить в пиксели..."></textarea>
+          <div class="capacity-bar-bg">
+            <div class="capacity-bar-fill" id="capacityFill"></div>
+          </div>
+          <div class="capacity-text">
+            <span id="usedBytesLabel">Использовано: 0 байт</span>
+            <span id="maxBytesLabel">Ёмкость фото: 0 байт</span>
+          </div>
+        </div>
+
+        <div>
+          <label for="encodePassword">Ключ шифрования XOR (необязательно):</label>
+          <input type="text" id="encodePassword" placeholder="Например: agent2026">
+        </div>
+
+        <button class="btn" id="embedBtn" onclick="embedData()" disabled>⚡ Вшить сообщение в пиксели</button>
+        <button class="btn btn-green" id="downloadBtn" onclick="downloadStegoImage()" style="display: none;">💾 Скачать стего-изображение (.PNG)</button>
+      </div>
+
+      <!-- Правая колонка визуализации -->
+      <div class="card">
+        <div class="viewer-toolbar">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text);">👁️ Режим криминалистического анализа:</span>
+          <div class="filter-group">
+            <button class="filter-btn active-normal" id="viewNormalBtn" onclick="setViewFilter('normal')">Обычный вид</button>
+            <button class="filter-btn" id="viewDiffBtn" onclick="setViewFilter('diff')">🔴 Рентген (Изменённые пиксели)</button>
+            <button class="filter-btn" id="viewBitPlaneBtn" onclick="setViewFilter('bitplane')">📡 Срез младших бит (LSB Plane)</button>
+          </div>
+        </div>
+
+        <div class="status-badge" id="encodeStatus">
+          Загрузите любое изображение, чтобы рассчитать доступную битовую ёмкость контейнера.
+        </div>
+
+        <div class="canvas-grid">
+          <div class="canvas-box">
+            <span>ОРИГИНАЛ (ДО ВНЕДРЕНИЯ)</span>
+            <canvas id="origCanvas"></canvas>
+          </div>
+          <div class="canvas-box">
+            <span id="stegoCanvasTitle">РЕЗУЛЬТАТ (СТЕГО-КОНТЕЙНЕР)</span>
+            <canvas id="stegoCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       РЕЖИМ 2: ИЗВЛЕЧЕНИЕ ДАННЫХ (DECODE)
+       ========================================================================= -->
+  <section id="decodePanel" class="panel">
+    <div class="grid-2">
+      <div class="card">
+        <h3>1. Загрузка подозреваемого файла</h3>
+
+        <div class="dropzone">
+          <input type="file" id="decodeImageInput" accept="image/png, image/*">
+          <div class="dropzone-title" id="decodeFileName">🔍 Выберите PNG-файл для анализа</div>
+          <div class="dropzone-sub">Извлекает скрытые данные из младших бит каналов R, G, B</div>
+        </div>
+
+        <div>
+          <label for="decodePassword">Ключ расшифровки XOR (если задавался):</label>
+          <input type="text" id="decodePassword" placeholder="Введите пароль...">
+        </div>
+
+        <button class="btn" id="extractBtn" onclick="extractData()" disabled>🔓 Извлечь скрытое сообщение</button>
+      </div>
+
+      <div class="card">
+        <h3>2. Результат стегоанализа</h3>
+        <div class="status-badge" id="decodeStatus">
+          Загрузите изображение формата PNG, в котором предположительно скрыто сообщение.
+        </div>
+
+        <div class="result-box" id="decodedResultBox">
+          <div style="font-size: 12px; color: var(--muted); text-transform: uppercase;">Обнаруженная полезная нагрузка:</div>
+          <pre id="decodedTextOutput"></pre>
+        </div>
+
+        <div class="canvas-box">
+          <span>АНАЛИЗИРУЕМОЕ ИЗОБРАЖЕНИЕ</span>
+          <canvas id="decodeCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // Сигнатура заголовка "STEG" (4 байта) для точного распознавания наличия скрытых данных
+  const MAGIC_HEADER = [0x53, 0x54, 0x45, 0x47];
+
+  const origCanvas = document.getElementById('origCanvas');
+  const origCtx = origCanvas.getContext('2d', { willReadFrequently: true });
+
+  const stegoCanvas = document.getElementById('stegoCanvas');
+  const stegoCtx = stegoCanvas.getContext('2d', { willReadFrequently: true });
+
+  const decodeCanvas = document.getElementById('decodeCanvas');
+  const decodeCtx = decodeCanvas.getContext('2d', { willReadFrequently: true });
+
+  let originalImageData = null; // Чистые пиксели исходного фото
+  let stegoImageData = null;    // Пиксели со вшитым текстом
+  let currentFilter = 'normal'; // 'normal' | 'diff' | 'bitplane'
+  let maxCapacityBytes = 0;
+
+  // Переключение вкладок Скрыть / Извлечь
+  function switchMode(mode) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+    if (mode === 'encode') {
+      document.getElementById('encodePanel').classList.add('active');
+      document.getElementById('tabEncodeBtn').classList.add('active');
+    } else {
+      document.getElementById('decodePanel').classList.add('active');
+      document.getElementById('tabDecodeBtn').classList.add('active');
+    }
+  }
+
+  // XOR-шифрование байтового массива паролем
+  function applyXor(bytes, password) {
+    if (!password) return bytes;
+    const passBytes = new TextEncoder().encode(password);
+    const out = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) {
+      out[i] = bytes[i] ^ passBytes[i % passBytes.length];
+    }
+    return out;
+  }
+
+  // Обновление индикатора заполнения ёмкости
+  function updateCapacityIndicator() {
+    const text = document.getElementById('secretMessage').value;
+    const msgBytes = new TextEncoder().encode(text).length;
+    const totalPayload = msgBytes > 0 ? msgBytes + 8 : 0; // +8 байт на заголовок STEG и длину
+
+    document.getElementById('usedBytesLabel').textContent = `Использовано: ${totalPayload} байт`;
+    document.getElementById('maxBytesLabel').textContent = `Ёмкость фото: ${maxCapacityBytes} байт`;
+
+    const fill = document.getElementById('capacityFill');
+    if (maxCapacityBytes === 0) {
+      fill.style.width = '0%';
+      return;
+    }
+
+    const pct = Math.min(100, (totalPayload / maxCapacityBytes) * 100);
+    fill.style.width = pct + '%';
+    fill.style.background = totalPayload > maxCapacityBytes ? 'var(--crimson)' : 'var(--green)';
+  }
+
+  document.getElementById('secretMessage').addEventListener('input', updateCapacityIndicator);
+
+  // Загрузка исходного изображения для кодирования
+  document.getElementById('encodeImageInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    document.getElementById('encodeFileName').textContent = `🖼️ ${file.name}`;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const img = new Image();
+      img.onload = function() {
+        origCanvas.width = stegoCanvas.width = img.width;
+        origCanvas.height = stegoCanvas.height = img.height;
+
+        origCtx.drawImage(img, 0, 0);
+        stegoCtx.drawImage(img, 0, 0);
+
+        originalImageData = origCtx.getImageData(0, 0, img.width, img.height);
+        stegoImageData = null;
+
+        // 3 бита на пиксель (R, G, B) -> делим на 8 для перевода в байты, минус 8 байт заголовка
+        const totalPixels = img.width * img.height;
+        maxCapacityBytes = Math.max(0, Math.floor((totalPixels * 3) / 8) - 8);
+
+        updateCapacityIndicator();
+        document.getElementById('embedBtn').disabled = false;
+        document.getElementById('downloadBtn').style.display = 'none';
+        document.getElementById('encodeStatus').textContent =
+          `Контейнер загружен (${img.width}×${img.height} px). Доступно для скрытия: ${maxCapacityBytes.toLocaleString()} байт.`;
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Внедрение сообщения в младшие биты (LSB)
+  function embedData() {
+    if (!originalImageData) return;
+
+    const rawText = document.getElementById('secretMessage').value;
+    if (!rawText) {
+      alert('Введите текст сообщения для скрытия!');
+      return;
+    }
+
+    const password = document.getElementById('encodePassword').value;
+    const encodedText = new TextEncoder().encode(rawText);
+    const cipherBytes = applyXor(encodedText, password);
+
+    if (cipherBytes.length > maxCapacityBytes) {
+      alert('Сообщение слишком длинное для этого изображения! Выберите картинку большего разрешения.');
+      return;
+    }
+
+    // Формируем итоговый пакет: [4 байта MAGIC "STEG"] + [4 байта длина] + [данные]
+    const len = cipherBytes.length;
+    const lenBytes = [
+      (len >>> 24) & 0xFF,
+      (len >>> 16) & 0xFF,
+      (len >>> 8) & 0xFF,
+      len & 0xFF
+    ];
+
+    const payload = new Uint8Array(8 + len);
+    payload.set(MAGIC_HEADER, 0);
+    payload.set(lenBytes, 4);
+    payload.set(cipherBytes, 8);
+
+    // Копируем пиксели оригинала
+    const newImgData = new ImageData(
+      new Uint8ClampedArray(originalImageData.data),
+      originalImageData.width,
+      originalImageData.height
+    );
+    const data = newImgData.data;
+
+    const totalBits = payload.length * 8;
+    let bitIdx = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+      // Фиксируем альфа-канал на 255, чтобы браузер не искажал RGB при рендеринге
+      data[i + 3] = 255;
+
+      // Записываем по 1 биту в каналы R (i), G (i+1), B (i+2)
+      for (let c = 0; c < 3; c++) {
+        if (bitIdx < totalBits) {
+          const bytePos = Math.floor(bitIdx / 8);
+          const bitShift = 7 - (bitIdx % 8);
+          const bit = (payload[bytePos] >> bitShift) & 1;
+
+          // Обнуляем младший бит (& 0xFE) и записываем наш бит (| bit)
+          data[i + c] = (data[i + c] & 0xFE) | bit;
+          bitIdx++;
+        }
+      }
+    }
+
+    stegoImageData = newImgData;
+    renderStegoCanvas();
+
+    document.getElementById('downloadBtn').style.display = 'block';
+    document.getElementById('encodeStatus').innerHTML =
+      `✅ Успешно вшито <b>${payload.length} байт</b> (${totalBits} бит). Попробуйте включить <b>«Рентген»</b> справа!`;
+  }
+
+  // Переключение фильтров визуализации (Обычный / Рентген / Битовая плоскость)
+  function setViewFilter(filter) {
+    currentFilter = filter;
+    document.getElementById('viewNormalBtn').className = 'filter-btn' + (filter === 'normal' ? ' active-normal' : '');
+    document.getElementById('viewDiffBtn').className = 'filter-btn' + (filter === 'diff' ? ' active' : '');
+    document.getElementById('viewBitPlaneBtn').className = 'filter-btn' + (filter === 'bitplane' ? ' active' : '');
+    renderStegoCanvas();
+  }
+
+  function renderStegoCanvas() {
+    const targetData = stegoImageData || originalImageData;
+    if (!targetData) return;
+
+    const w = targetData.width;
+    const h = targetData.height;
+
+    if (currentFilter === 'normal') {
+      document.getElementById('stegoCanvasTitle').textContent = 'РЕЗУЛЬТАТ (СТЕГО-КОНТЕЙНЕР)';
+      stegoCtx.putImageData(targetData, 0, 0);
+      return;
+    }
+
+    const viewData = stegoCtx.createImageData(w, h);
+    const dst = viewData.data;
+    const src = targetData.data;
+
+    if (currentFilter === 'diff') {
+      document.getElementById('stegoCanvasTitle').textContent = 'РЕНТГЕН: ИЗМЕНЁННЫЕ ПИКСЕЛИ';
+      if (!stegoImageData || !originalImageData) {
+        stegoCtx.putImageData(targetData, 0, 0);
+        return;
+      }
+      const orig = originalImageData.data;
+      for (let i = 0; i < src.length; i += 4) {
+        const changed = (src[i] !== orig[i]) || (src[i + 1] !== orig[i + 1]) || (src[i + 2] !== orig[i + 2]);
+        if (changed) {
+          // Подсвечиваем изменённый пиксель ярко-красным
+          dst[i] = 255;
+          dst[i + 1] = 42;
+          dst[i + 2] = 95;
+          dst[i + 3] = 255;
+        } else {
+          // Затемняем нетронутые пиксели для контраста
+          const lum = (orig[i] * 0.3 + orig[i + 1] * 0.59 + orig[i + 2] * 0.11) * 0.25;
+          dst[i] = lum;
+          dst[i + 1] = lum;
+          dst[i + 2] = lum;
+          dst[i + 3] = 255;
+        }
+      }
+    } else if (currentFilter === 'bitplane') {
+      document.getElementById('stegoCanvasTitle').textContent = 'СРЕЗ МЛАДШИХ БИТ (LSB BIT-PLANE)';
+      for (let i = 0; i < src.length; i += 4) {
+        // Усиливаем младший бит (0 или 1) в 255 раз (0 или 255)
+        dst[i] = (src[i] & 1) * 255;
+        dst[i + 1] = (src[i + 1] & 1) * 255;
+        dst[i + 2] = (src[i + 2] & 1) * 255;
+        dst[i + 3] = 255;
+      }
+    }
+
+    stegoCtx.putImageData(viewData, 0, 0);
+  }
+
+  // Скачивание чистого PNG (независимо от активного рентген-фильтра на экране)
+  function downloadStegoImage() {
+    if (!stegoImageData) return;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = stegoImageData.width;
+    tempCanvas.height = stegoImageData.height;
+    tempCanvas.getContext('2d').putImageData(stegoImageData, 0, 0);
+
+    const link = document.createElement('a');
+    link.download = 'secret_stego_image.png';
+    link.href = tempCanvas.toDataURL('image/png');
+    link.click();
+  }
+
+  // =========================================================================
+  // ЛОГИКА ДЕКОДИРОВАНИЯ (ИЗВЛЕЧЕНИЕ ИЗ PNG)
+  // =========================================================================
+  let decodeImageData = null;
+
+  document.getElementById('decodeImageInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    document.getElementById('decodeFileName').textContent = `📄 ${file.name}`;
+    document.getElementById('decodedResultBox').style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const img = new Image();
+      img.onload = function() {
+        decodeCanvas.width = img.width;
+        decodeCanvas.height = img.height;
+        decodeCtx.drawImage(img, 0, 0);
+        decodeImageData = decodeCtx.getImageData(0, 0, img.width, img.height);
+        document.getElementById('extractBtn').disabled = false;
+        document.getElementById('decodeStatus').textContent =
+          `Файл загружен (${img.width}×${img.height} px). Нажмите кнопку извлечения.`;
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function extractData() {
+    if (!decodeImageData) return;
+
+    const data = decodeImageData.data;
+    const totalBitsAvailable = (data.length / 4) * 3;
+    const maxBytes = Math.floor(totalBitsAvailable / 8);
+
+    // Вспомогательная функция чтения N байт из младших бит пикселей
+    function readBytes(count) {
+      const result = new Uint8Array(count);
+      let bitIdx = 0;
+      const neededBits = count * 8;
+
+      for (let i = 0; i < data.length && bitIdx < neededBits; i += 4) {
+        for (let c = 0; c < 3 && bitIdx < neededBits; c++) {
+          const bit = data[i + c] & 1;
+          const bytePos = Math.floor(bitIdx / 8);
+          const bitShift = 7 - (bitIdx % 8);
+          result[bytePos] |= (bit << bitShift);
+          bitIdx++;
+        }
+      }
+      return result;
+    }
+
+    // 1. Читаем первые 8 байт заголовка (4 байта MAGIC + 4 байта длина)
+    const header = readBytes(8);
+    const isStego =
+      header[0] === MAGIC_HEADER[0] &&
+      header[1] === MAGIC_HEADER[1] &&
+      header[2] === MAGIC_HEADER[2] &&
+      header[3] === MAGIC_HEADER[3];
+
+    if (!isStego) {
+      document.getElementById('decodeStatus').innerHTML =
+        `❌ <b>Скрытых данных не найдено.</b> Файл чистый либо был сжат мессенджером/JPEG.`;
+      document.getElementById('decodedResultBox').style.display = 'none';
+      return;
+    }
+
+    const msgLen = ((header[4] << 24) | (header[5] << 16) | (header[6] << 8) | header[7]) >>> 0;
+
+    if (msgLen === 0 || msgLen + 8 > maxBytes) {
+      document.getElementById('decodeStatus').textContent = '❌ Ошибка целостности заголовка стего-контейнера.';
+      return;
+    }
+
+    // 2. Извлекаем полный пакет и отрезаем 8 байт заголовка
+    const fullPacket = readBytes(8 + msgLen);
+    const cipherBytes = fullPacket.slice(8);
+
+    const password = document.getElementById('decodePassword').value;
+    const plainBytes = applyXor(cipherBytes, password);
+
+    try {
+      const decodedText = new TextDecoder('utf-8', { fatal: false }).decode(plainBytes);
+      document.getElementById('decodeStatus').innerHTML =
+        `✅ Извлечено скрытое сообщение размером <b>${msgLen} байт</b>:`;
+      document.getElementById('decodedTextOutput').textContent = decodedText;
+      document.getElementById('decodedResultBox').style.display = 'block';
+    } catch (err) {
+      document.getElementById('decodeStatus').textContent = '❌ Не удалось декодировать текст. Проверьте пароль.';
+    }
+  }
+</script>
+</body>
+</html>
